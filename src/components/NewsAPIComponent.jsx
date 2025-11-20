@@ -1,32 +1,35 @@
 import React, { useEffect, useState } from "react";
 
-const NewsAPIComponent = () => {
-  const [articles, setArticles] = useState([]);
+const NewsAPIComponent = () =>{
+  const [news, setNews] = useState([]);
 
   useEffect(() => {
-    fetch(
-      "https://newsapi.org/v2/everything?q=gaming&language=en&sortBy=publishedAt&apiKey=04cfa3b5283d4e33805ca2556f09c46a"
-    )
-      .then(res => res.json())
-      .then(data => {
-        if (data.articles) setArticles(data.articles);
-      })
-      .catch(err => console.log(err));
-  }, []);
+      const fetchNews = async () =>{
+        const request = await fetch("https://api.rss2json.com/v1/api.json?rss_url=https://www.polygon.com/rss/index.xml&api_key=jdb7irzaiao8eeds90qloiuwo7n1wfc5okanzpcl");
+        const data = await request.json()
+        console.log(data);
+        setNews(data.items || [])
+      }
 
-  return (
-    <section>
-      <h1>Игровые новости</h1>
-      {articles.map((item, index) => (
+      fetchNews()
+  }, [])
+
+  return(
+    <>
+      {news.map((item,index) => (
         <div key={index}>
-          <h2>{item.title}</h2>
-          <p>{item.publishedAt}</p>
-          <p>{item.description}</p>
-          <a href={item.url} target="_blank">Читать полностью</a>
+          <h1>{item.title}</h1>
+          <p dangerouslySetInnerHTML={{ __html: item.description }}></p>
+          {item.enclosure && <img src={item.enclosure.link} alt="" style={{maxWidth: "200px"}} />}
+          <br/>
+          <a href={item.link} target="_blank" rel="noopener noreferrer">
+            Читать полностью
+          </a>
+          <p>{new Date(item.pubDate).toLocaleString()}</p>
         </div>
       ))}
-    </section>
-  );
-};
+    </>
+  )
+}
 
 export default NewsAPIComponent;
