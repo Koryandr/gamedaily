@@ -1,64 +1,160 @@
+// Импортируем React и два хука useState и useEffect.
+// useState — позволяет создавать внутренние данные (состояния) внутри компонента.
+// useEffect — позволяет выполнять побочные эффекты: загрузку данных, подписки, таймеры и т.п.
 import React, { useEffect, useState } from "react";
+import "./NewsAPIComponent.css";
 
-// 1. Список RSS, которые точно работают через rss2json
+// Массив ссылок на RSS-ленты.
+// Каждая строка — это источник новостей, который будет преобразован в JSON через rss2json API.
 const rssFeeds = [
-  "https://www.polygon.com/rss/index.xml",           // Polygon — точно работает
-  "https://kotaku.com/rss",                          // Kotaku — рабочий RSS
-  "https://www.rockpapershotgun.com/feed"           // Rock Paper Shotgun — рабочий RSS
+  "https://www.polygon.com/rss/index.xml",
+  "https://kotaku.com/rss",
+  "https://www.rockpapershotgun.com/feed"
 ];
 
+// Функция-фильтр, которая определяет: является ли новость игровой.
+// На вход получает объект item — одну новость из RSS.
+function isGamingNews(item) {
+  // Объединяем заголовок и описание в одну строку, затем приводим всё к нижнему регистру.
+  // Это удобно для проверки ключевых слов, чтобы не учитывать регистр.
+  const text = (item.title + " " + item.description).toLowerCase();
+
+  // Берём категории новости (если их нет — заменяем пустым массивом),
+  // затем переводим каждую категорию в нижний регистр.
+  const cats = (item.categories || []).map(c => c.toLowerCase());
+
+  // Список разрешённых категорий, которые точно указывают на игровую тему.
+  const allowedCats = [
+    "game", "games", "gaming",
+    "pc gaming", "playstation", "xbox", "nintendo"
+  ];
+
+  // Список ключевых слов, которые могут присутствовать в тексте,
+  // если категория не помогает определить тематику.
+  const allowedKeywords = [
+    "game", "games", "gaming", "videogame", "videogames",
+    "ps5", "ps4",
+    "xbox", "series x", "series s",
+    "nintendo", "switch",
+    "steam", "pc game",
+    "review", "patch", "update", "dlc"
+  ];
+
+  // Если категории существуют — сначала проверяем их.
+  if (cats.length > 0) {
+    // Проверяем: содержит ли массив категорий хотя бы одну из разрешённых.
+    if (cats.some(cat => allowedCats.includes(cat))) return true;
+  }
+
+  // Если категории пустые или не совпали — проверяем ключевые слова внутри текста.
+  // Если хотя бы одно ключевое слово встречается — новость считается игровой.
+  return allowedKeywords.some(kw => text.includes(kw));
+}
+
+// Главный компонент, который загружает новости и отображает их на странице.
 const NewsAPIComponent = () => {
-  const [news, setNews] = useState([]); // 2. Хранение всех новостей
+  // Создаём состояние news — массив всех полученных новостей.
+  // setNews — функция, позволяющая обновить этот массив.
+  const [news, setNews] = useState([]);
 
+  // useEffect выполняется при первом рендере компонента.
+  // Здесь загружается весь RSS, чтобы показать новости.
   useEffect(() => {
+    // Внутренняя асинхронная функция загрузки новостей.
     const fetchNews = async () => {
-      let allNews = []; // 3. Пустой массив для всех новостей
+      // Общий массив, куда будут добавляться новости из каждого RSS.
+      let allNews = [];
 
+      // Перебираем каждую ссылку в массиве rssFeeds.
       for (let feed of rssFeeds) {
         try {
-          // 4. Получаем новости через rss2json
+          // Делаем запрос к API rss2json: преобразовать RSS → JSON.
+          // encodeURIComponent используется для безопасной передачи URL внутри другого URL.
           const res = await fetch(
             `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed)}&api_key=jdb7irzaiao8eeds90qloiuwo7n1wfc5okanzpcl`
           );
-          const data = await res.json(); // 5. Превращаем в JSON
-          
-          // 6. Добавляем новости в массив и помечаем источник
+
+          // Преобразуем полученный ответ HTTP в формат JSON.
+          const data = await res.json();
+
+          // Добавляем новости из этого RSS в общий список.
           allNews = allNews.concat(
-            (data.items || []).map(item => ({ ...item, source: feed }))
+            (data.items || [])               // Если items нет, подставляем пустой массив.
+              .filter(isGamingNews)          // Фильтруем только игровые новости.
+              .map(item => ({                // Для каждой новости создаём новый объект...
+                ...item,                     // ...копируем все поля из оригинальной новости.
+                source: feed                 // ...добавляем поле source — откуда новость.
+              }))
           );
         } catch (err) {
-          console.log(`Ошибка с ${feed}:`, err); // 7. Логируем ошибки
+          // В случае ошибки выводим информацию в консоль, чтобы понимать проблемный RSS.
+          console.log(`Ошибка с ${feed}:`, err);
         }
       }
 
-      // 8. Сортируем новости по дате публикации
+      // Сортируем все новости по дате публикации — свежие сверху.
       allNews.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
 
-      setNews(allNews); // 9. Кладём в состояние для отображения
+      // Обновляем состояние → React перерисует компонент с новыми данными.
+      setNews(allNews);
     };
 
-    fetchNews(); // 10. Запуск функции загрузки
-  }, []); // 11. Выполняется один раз при монтировании компонента
+    // Запускаем загрузку новостей.
+    fetchNews();
+  // Пустой массив зависимостей означает, что useEffect выполнится один раз — при загрузке компонента.
+  }, []);
 
+  // Возвращаем JSX — разметку интерфейса.
   return (
     <>
-      {news.map((item, index) => (
-        <div key={index}>
-          <h1>{item.title}</h1> {/* 12. Заголовок */}
-          <p dangerouslySetInnerHTML={{ __html: item.description }}></p> {/* 13. Описание */}
-          {item.enclosure && (
-            <img src={item.enclosure.link} alt="" style={{ maxWidth: "200px" }} />
-          )} {/* 14. Картинка, если есть */}
-          <br />
-          <a href={item.link} target="_blank" rel="noopener noreferrer">
-            Читать полностью
-          </a> {/* 15. Ссылка */}
-          <p>{new Date(item.pubDate).toLocaleString()}</p> {/* 16. Дата */}
-          <p>Источник: {item.source}</p> {/* 17. Источник RSS */}
-        </div>
-      ))}
+      {/* Перебор массива новостей для отображения каждой на экране. */}
+      {news.map((item, index) => {
+        // Перед показом очищаем description:
+        // 1) удаляем <img> чтобы не было дубликатов картинок
+        // 2) удаляем <a> — встраиваемые "Read more"
+        const cleanDescription = item.description
+          .replace(/<img[^>]*>/g, "")     // Регулярка удаляет все теги <img ... >
+          .replace(/<a[^>]*>(.*?)<\/a>/g, ""); // Удаляем любые ссылки <a>...</a>
+
+        return (
+          // Каждый элемент списка обязан иметь уникальный key для оптимальной работы React.
+          <div className="block-news" key={index}>
+            
+            {/* Заголовок новости */}
+            <h1>{item.title}</h1>
+
+            {/* Описание новости. Используем dangerouslySetInnerHTML,
+                чтобы вставить HTML-строку напрямую.
+                Без этого HTML будет отображаться как текст обычными символами. */}
+            <p dangerouslySetInnerHTML={{ __html: cleanDescription }}></p>
+
+            {/* Если у новости в RSS есть отдельная картинка (enclosure), выводим её. */}
+            {item.enclosure && (
+              <img
+                src={item.enclosure.link}   // Ссылка на картинку.
+                alt=""                       // Пустой alt, чтобы не показывать текст вместо картинки.
+                style={{ maxWidth: "200px" }} // Ограничиваем размер.
+              />
+            )}
+
+            <br />
+
+            {/* Ссылка на оригинальную статью на сайте-источнике. */}
+            <a href={item.link} target="_blank" rel="noopener noreferrer">
+              Читать полностью
+            </a>
+
+            {/* Показываем дату публикации, преобразовав её в удобный формат. */}
+            <p>{new Date(item.pubDate).toLocaleString()}</p>
+
+            {/* Показываем, из какого RSS эта новость. */}
+            <p>Источник: {item.source}</p>
+          </div>
+        );
+      })}
     </>
   );
 };
 
+// Экспортируем компонент, чтобы можно было использовать его в других файлах приложения.
 export default NewsAPIComponent;

@@ -1,0 +1,8 @@
+body{
+    background: linear-gradient(to right, #2c3055, #1c1c34);
+}
+
+.block-news{
+    border: 1px solid white;
+    color: white;
+}
