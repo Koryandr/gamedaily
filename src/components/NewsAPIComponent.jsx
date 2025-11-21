@@ -19,6 +19,28 @@ function isGamingNews(item) {
   // Это удобно для проверки ключевых слов, чтобы не учитывать регистр.
   const text = (item.title + " " + item.description).toLowerCase();
 
+  async function translateText(text) {
+  try {
+    const res = await fetch("https://libretranslate.de/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        q: text,
+        source: "en",
+        target: "ru",
+        format: "text"
+      })
+    });
+
+    const data = await res.json();
+    return data.translatedText;
+  } catch (e) {
+    console.error("Ошибка перевода:", e);
+    return text; // если API упал — показываем оригинал
+  }
+}
+
+
   // Берём категории новости (если их нет — заменяем пустым массивом),
   // затем переводим каждую категорию в нижний регистр.
   const cats = (item.categories || []).map(c => c.toLowerCase());
@@ -121,19 +143,19 @@ const NewsAPIComponent = () => {
           <div className="block-news" key={index}>
             
             {/* Заголовок новости */}
-            <h1>{item.title}</h1>
+            <h1 className="news-title">{item.title}</h1>
 
             {/* Описание новости. Используем dangerouslySetInnerHTML,
                 чтобы вставить HTML-строку напрямую.
                 Без этого HTML будет отображаться как текст обычными символами. */}
-            <p dangerouslySetInnerHTML={{ __html: cleanDescription }}></p>
+            <p className="description" dangerouslySetInnerHTML={{ __html: cleanDescription }}></p>
 
             {/* Если у новости в RSS есть отдельная картинка (enclosure), выводим её. */}
             {item.enclosure && (
               <img
                 src={item.enclosure.link}   // Ссылка на картинку.
                 alt=""                       // Пустой alt, чтобы не показывать текст вместо картинки.
-                style={{ maxWidth: "200px" }} // Ограничиваем размер.
+                style={{ maxWidth: "400px" }} // Ограничиваем размер.
               />
             )}
 
@@ -145,10 +167,7 @@ const NewsAPIComponent = () => {
             </a>
 
             {/* Показываем дату публикации, преобразовав её в удобный формат. */}
-            <p>{new Date(item.pubDate).toLocaleString()}</p>
-
-            {/* Показываем, из какого RSS эта новость. */}
-            <p>Источник: {item.source}</p>
+            <p className="news-data">Дата: {new Date(item.pubDate).toLocaleString()}</p>
           </div>
         );
       })}

@@ -1,12 +1,14 @@
 import React from "react";
-import "./Head.css";
+import "./Head.css"
 
 const Head = () => {
     return(
-        <div className="main-text">
-            <h1>GameDaily</h1>
-            <h3>Ежедневные игровые новости</h3>
-        </div>
+        <section>
+            <div className="news-head">
+                <p className="main-text">GameDaily</p>
+                <p className="text-dec">САМЫЕ СВЕЖИЕ НОВОСТИ ИЗ МИРА ИГР</p>
+            </div>
+        </section>
     )
 }
 
